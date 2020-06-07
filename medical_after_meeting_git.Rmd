@@ -1,0 +1,392 @@
+---
+title: "**Eye tracking: Gender, Medical Leave, and Supervisors (after meeting with Kevin)**"
+author: "**Motro et al. 2020 - Working Paper**"
+date: '`r Sys.Date()`'
+header-includes:
+- \usepackage{pdflscape}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
+- \usepackage{rotating}
+- \usepackage{longtable}
+- \usepackage{gensymb}
+- \usepackage{amsfonts}
+- \usepackage{amsmath}
+- \DeclareUnicodeCharacter{2588}{$\bullet$}
+output:
+  pdf_document:
+    toc: true
+    fig_height: 10
+    fig_width: 15
+fontsize: 10pt
+---
+
+```{r knitr_init, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+library(ggplot2)
+library(car)
+library(sjmisc)  # for sample data
+library(tidyverse)
+library(lattice)
+library(gmodels)
+library("ggpubr")
+library(Amelia)
+library(rmarkdown)
+library(dplyr)
+library(plyr)
+library(Rmisc)
+library(corrr)
+library(psych)
+library(lattice)
+library(Rmisc)
+library(psych)
+library(Hmisc)
+library(gridExtra)
+library(lme4)
+library(pander)
+library(interactions)
+library(lmerTest)
+library(emmeans)
+library(tinytex)
+
+
+## Global options
+options(scipen=999)
+options(digits=8)
+options(round=4)
+options(max.print=10000)
+opts_chunk$set(echo=FALSE,
+               cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+\pagebreak
+
+# ***Open data***
+
+## *Open*
+
+\vspace{\baselineskip}
+
+```{r Age, echo = FALSE}
+prof <- rio::import(file = "/Users/andreapittarello/Dropbox/Eye-Tracking Data/May_Medical_Data/Behavior_and_eye_movements_May_24_2020.xlsx", which = 1L)
+
+library(pander)
+library(pastecs)
+
+```
+
+\vspace{\baselineskip}
+
+
+# ***Selection: Only Experimental Trials - all combinations***
+As can be seen, overall people prefer F over M when the profiles are different. 
+\vspace{\baselineskip}
+
+```{r Choices1, echo=FALSE}
+prof.exp<-subset(prof, Trial_Type=="Experimental")
+Cost.se<- na.omit(summarySE(prof.exp, measurevar="Select", 
+                            groupvars=c("Combination_type","Gender"),
+                            na.rm=TRUE))
+pander(Cost.se)
+
+figure<-ggplot(Cost.se, aes(x=Combination_type, y=Select, 
+														colour=Gender,shape=Gender)) + 
+	geom_bar(position=position_dodge(), stat="identity",
+					 aes(fill=Gender),colour="Black",
+					 size=.5) +  
+	xlab("\nCombination Type") +
+	ylab("% of choice\n") +
+	coord_cartesian(ylim=c(0,1)) + 
+	scale_y_continuous(breaks=seq(0,1,.2))+
+	theme_bw()+
+	ggtitle("Likelihood of choosing (in %)") +
+	theme_bw()+theme(panel.grid.minor=element_line(colour="White"))+
+	theme(panel.grid.major=element_line(colour="White"))+
+	theme(legend.position="bottom")+
+	theme(legend.key=element_rect(colour="White"))+
+	theme(legend.key=element_rect(colour="White"))+
+	theme(panel.border=element_rect(colour="White"))+
+	theme(axis.line.x = element_line(colour = 'black', size=.5))+
+	theme(axis.line.y = element_line(colour = 'black', size=.5))+
+	theme(axis.text=element_text(size=16))+
+	theme(axis.title=element_text(size=16,face="bold"))+
+	theme(legend.text=element_text(size=16))+
+	theme(legend.title=element_blank())+
+	theme(plot.title=element_text(size=12,face="bold"))+
+	theme(axis.line.y = element_line(colour = 'black', size=.5),
+				axis.line.x = element_line(colour = 'black', size=.5))
+library(jtools)
+figure + scale_fill_grey(start = .3, end = .7) + theme_apa(legend.pos = "topright",
+																													 legend.font.size = 16,
+																													 x.font.size = 16, y.font.size = 16) +
+	theme(axis.text.x = element_text(size = 16)) + theme(axis.text.y = element_text(size = 16))
+#figure + scale_fill_hue(l=35, c=55)
+#figure + scale_fill_manual(values=c("grey", "firebrick"))
+```
+
+# ***Selection: Only Filler Trials - all combinations***
+
+\vspace{\baselineskip}
+
+```{r Choices2, echo=FALSE}
+prof.fill<-subset(prof, Trial_Type=="Filler")
+
+Cost.se<- na.omit(summarySE(prof.fill, measurevar="Select", 
+                            groupvars=c("Combination_type","Gender"),
+                            na.rm=TRUE))
+pander(Cost.se)
+```
+
+# ***GLMER on choice: Experimental Trials and Different combinations***
+The regression shows a strong main effect of gender. Preference for F over M when combinations are different. 
+\vspace{\baselineskip}
+
+```{r Choices3, echo=FALSE}
+prof.dif<-subset(prof.exp,Combination_type=="different")
+
+m <- glmer(Select ~ Gender + (1 | Participant), data = prof.dif, family = binomial)
+Anova(m, type =3)
+summ(m)
+```
+
+# ***Choice by Gender of the candidate and leave Experimental Trials and Different combinations***
+Here, we look at whether the preference depends on type of leave. 
+\vspace{\baselineskip}
+
+```{r Choices4, echo=FALSE}
+prof.dif.only.leave <- subset(prof.dif,AOI=="leave")
+
+Cost.se<- na.omit(summarySE(prof.dif.only.leave, measurevar="Select", 
+                            groupvars=c("Content_of_AOI","Gender"),
+                            na.rm=TRUE))
+pander(Cost.se)
+figure<-ggplot(Cost.se, aes(x=Gender, y=Select, 
+														colour=Content_of_AOI,shape=Content_of_AOI)) + 
+	geom_bar(position=position_dodge(), stat="identity",
+					 aes(fill=Content_of_AOI),colour="Black",
+					 size=.5) +  
+	xlab("\nType of leave") +
+	ylab("% of choice\n") +
+	coord_cartesian(ylim=c(0,1)) + 
+	scale_y_continuous(breaks=seq(0,1,.2))+
+	theme_bw()+
+	ggtitle("Likelihood of choosing based on gender and type of leave (%) ") +
+	theme_bw()+theme(panel.grid.minor=element_line(colour="White"))+
+	theme(panel.grid.major=element_line(colour="White"))+
+	theme(legend.position="bottom")+
+	theme(legend.key=element_rect(colour="White"))+
+	theme(legend.key=element_rect(colour="White"))+
+	theme(panel.border=element_rect(colour="White"))+
+	theme(axis.line.x = element_line(colour = 'black', size=.5))+
+	theme(axis.line.y = element_line(colour = 'black', size=.5))+
+	theme(axis.text=element_text(size=16))+
+	theme(axis.title=element_text(size=16,face="bold"))+
+	theme(legend.text=element_text(size=16))+
+	theme(legend.title=element_blank())+
+	theme(plot.title=element_text(size=12,face="bold"))+
+	theme(axis.line.y = element_line(colour = 'black', size=.5),
+				axis.line.x = element_line(colour = 'black', size=.5))
+library(jtools)
+figure + scale_fill_grey(start = .3, end = .7) + theme_apa(legend.pos = "topright",
+																													 legend.font.size = 16,
+																													 x.font.size = 16, y.font.size = 16) +
+	theme(axis.text.x = element_text(size = 16)) + theme(axis.text.y = element_text(size = 16))
+#figure + scale_fill_hue(l=35, c=55)
+#figure + scale_fill_manual(values=c("grey", "firebrick","blue"))
+```
+
+# ***GLMER: Gender of the candidate by leave Experimental Trials and Different combinations and contrasts below***
+This model tests the effect of type of leave and gender on likelihood of choosing.
+As can be seen, we have a main effect of gender and type of leave. No interaction.
+Contrasts are below for each comparison. Overall, all leaves are different. People choose more frequently people on parental vs. no leave, parental vs. medical and parental vs. no leave. 
+The effect of gender is the same as above. Note that the contrasts for the interaction are for illustrative purposes since the interaction was n.s. 
+\vspace{\baselineskip}
+
+```{r Choices5, echo=FALSE}
+m <- glmer(Select ~ Gender+Content_of_AOI +Gender*Content_of_AOI+ (1 | Participant), data = prof.dif.only.leave, family = binomial)
+Anova(m,type =3)
+summ(m)
+
+cat_plot(m, pred = Content_of_AOI, modx = Gender,geom = "bar", interval = TRUE)
+
+emm = emmeans(m, ~ Content_of_AOI * Gender)
+pairs(emm, simple = "each")
+emm = emmeans(m, ~ Content_of_AOI)
+pairs(emm, simple = "each")
+emm = emmeans(m, ~ Gender)
+pairs(emm, simple = "each")
+
+```
+
+# ***Descriptive: Percentage of attention on the Type of Leave AOI (all fixations)***
+This below shows the relative amount of attention on the leave box by gender, type of leave, and choice (chosen vs. not chosen)
+\vspace{\baselineskip}
+```{r Choices6, echo=FALSE}
+Cost.se<- na.omit(summarySE(prof.dif.only.leave, measurevar="Percentage", 
+														groupvars=c("Gender","Content_of_AOI","Select"),
+														na.rm=TRUE))
+pander(Cost.se)
+
+```
+
+
+
+# ***Regression: Percentage of attention on the Type of Leave AOI (all fixations)***
+The regression has percentage of attention as DV, and choice, leave type, and gender as IV.
+We can see that there is an interaction between leave type and choice. No interaction with gender (we did not have it either with choice - see above.)
+Plot and contrasts are below
+
+\vspace{\baselineskip}
+```{r Choices7, echo=FALSE}
+m<-lmer(Percentage ~ Content_of_AOI*Select*Gender+ (1|Participant),data=prof.dif.only.leave)
+summ(m)
+Anova(m,type = 3)
+
+
+# Interaction Content by Selection ##
+Cost.se<- na.omit(summarySE(prof.dif.only.leave, measurevar="Percentage", 
+														groupvars=c("Content_of_AOI","Select"),
+														na.rm=TRUE))
+pander(Cost.se)
+ggplot(Cost.se, aes(x=Select, y=Percentage, fill=Content_of_AOI)) + 
+	geom_bar(position=position_dodge(), stat="identity",
+					 colour="black", # Use black outlines,
+					 size=.3) +      # Thinner lines
+	geom_errorbar(aes(ymin=Percentage-se, ymax=Percentage+se),
+								size=.4,    # Thinner lines
+								width=.3,
+								position=position_dodge(.9)) +
+	theme(axis.line.x = element_line(colour = 'white', size=.2))+
+	theme(axis.line.y = element_line(colour = 'black', size=.2))+
+	theme(axis.text=element_text(size=24))+
+	theme(axis.title=element_text(size=16,face="bold"))+
+	theme(legend.text=element_text(size=34))+
+	theme(legend.title=element_blank())+
+	theme(plot.title=element_text(size=12,face="bold"))+
+	xlab("Choice (0 not chosen, 1 chosen)") +
+	ylab("\nProportion of Attention (in %)") +
+	#scale_fill_hue(name="Alternative", # Legend label, use darker colors
+	#              breaks=c("Competitor", "Target"),
+	#             labels=c("Competitor", "Target")) +
+	ggtitle("Proportion of attention on the type of leave AOI by Choice") +
+	coord_cartesian(ylim=c(0,100 )) + 
+	scale_y_continuous(breaks=seq(0, 100, 10))+
+	scale_fill_manual(values=c("white", "grey","red"))
+	#scale_y_continuous(breaks=0:7) +
+	#theme_base() + facet_wrap(~Select)
+
+
+emm = emmeans(m, ~ Content_of_AOI*Select)
+pairs(emm, simple = "each")
+```
+
+#***Regression: Fix duration on type of leave***
+The regression has fixateion duration on type of leave as DV, and choice, leave type, and gender as IV.
+We can see that there is an interaction between leave type and choice. No interaction with gender (we did not have it either with choice - see above.)
+Plot and contrasts are below
+\vspace{\baselineskip}
+
+```{r Choices8, echo=FALSE}
+
+m<-lmer(Fix_Dur ~ Content_of_AOI*Select*Gender+ (1|Participant),data=prof.dif.only.leave)
+summ(m)
+Anova(m,type = 3)
+
+Cost.se<- na.omit(summarySE(prof.dif.only.leave, measurevar="Fix_Dur", 
+														groupvars=c("Content_of_AOI","Select"),
+														na.rm=TRUE))
+pander(Cost.se)
+library(ggthemes)
+ggplot(Cost.se, aes(x=Select, y=Fix_Dur, fill=Content_of_AOI)) + 
+	geom_bar(position=position_dodge(), stat="identity",
+					 colour="black", # Use black outlines,
+					 size=.3) +      # Thinner lines
+	geom_errorbar(aes(ymin=Fix_Dur-se, ymax=Fix_Dur+se),
+								size=.4,    # Thinner lines
+								width=.3,
+								position=position_dodge(.9)) +
+	theme(axis.line.x = element_line(colour = 'white', size=.2))+
+	theme(axis.line.y = element_line(colour = 'black', size=.2))+
+	theme(axis.text=element_text(size=24))+
+	theme(axis.title=element_text(size=16,face="bold"))+
+	theme(legend.text=element_text(size=34))+
+	theme(legend.title=element_blank())+
+	theme(plot.title=element_text(size=12,face="bold"))+
+	xlab("Choice") +
+	ylab("\nFixation Durations on leave type") +
+	#scale_fill_hue(name="Alternative", # Legend label, use darker colors
+	#              breaks=c("Competitor", "Target"),
+	#             labels=c("Competitor", "Target")) +
+	ggtitle("Overall fixations on type of leave") +
+	coord_cartesian(ylim=c(0,500 )) + 
+	scale_y_continuous(breaks=seq(0, 500, 100))+
+	scale_fill_manual(values=c("white", "grey","red"))+
+	#scale_y_continuous(breaks=0:7) +
+	theme_base() 
+emm = emmeans(m, ~ Content_of_AOI*Select)
+pairs(emm, simple = "each")
+```
+
+#***Regression: Percentage x Leave type predicting choice***
+The regression has choice as DV. Predictors are percentage of attention on leave, type of leave, and gender. 
+As can be seen, there is an interaction between type of leave and percentage predicting choice. The plot is below together with slope analysis. 
+\vspace{\baselineskip}
+
+```{r Choices9, echo=FALSE}
+
+library(jtools)
+m<-lmer(Select ~ Content_of_AOI*Percentage*Gender+ (1|Participant),data=prof.dif.only.leave)
+summ(m)
+Anova(m,type = 3)
+
+# interaction content by percentage prediting choice #
+library(interactions)
+sim_slopes(m, pred =Percentage, modx=Content_of_AOI, Johnson_neyman = FALSE)
+interact_plot(m, pred = Percentage, modx = Content_of_AOI,interval = TRUE)
+
+# three way plot DV = percentage of attention, IV = gender IV1 = leave #
+Cost.se<- na.omit(summarySE(prof.dif.only.leave, measurevar="Percentage", 
+														groupvars=c("Content_of_AOI","Select","Gender"),
+														na.rm=TRUE))
+pander(Cost.se)
+ggplot(Cost.se, aes(x=Content_of_AOI, y=Percentage, fill=Gender)) + 
+	geom_bar(position=position_dodge(), stat="identity",
+					 colour="black", # Use black outlines,
+					 size=.3) +      # Thinner lines
+	geom_errorbar(aes(ymin=Percentage-se, ymax=Percentage+se),
+								size=.4,    # Thinner lines
+								width=.3,
+								position=position_dodge(.9)) +
+	theme(axis.line.x = element_line(colour = 'white', size=.2))+
+	theme(axis.line.y = element_line(colour = 'black', size=.2))+
+	theme(axis.text=element_text(size=24))+
+	theme(axis.title=element_text(size=16,face="bold"))+
+	theme(legend.text=element_text(size=34))+
+	theme(legend.title=element_blank())+
+	theme(plot.title=element_text(size=12,face="bold"))+
+	xlab("Choice (0 not chosen, 1 chosen)") +
+	ylab("\nProportion of Attention (in %)") +
+	#scale_fill_hue(name="Alternative", # Legend label, use darker colors
+	#              breaks=c("Competitor", "Target"),
+	#             labels=c("Competitor", "Target")) +
+	ggtitle("Proportion of attention on the type of leave AOI by Choice") +
+	coord_cartesian(ylim=c(0,100 )) + 
+	scale_y_continuous(breaks=seq(0, 100, 10))+
+	scale_fill_manual(values=c("white", "grey","red"))+ facet_wrap(~Select)
+	#scale_y_continuous(breaks=0:7) +
+	#theme_base() + facet_wrap(~Select)
+
+
+
+```
+
